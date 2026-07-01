@@ -1,0 +1,1529 @@
+---
+title: "FDA Analysis - Meta Analysis and Plots"
+author: "Brooke Fridley"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(knitr)
+library(meta)
+library(grid)
+
+
+```
+
+# Background and Methods
+
+* Meta-Analysis of results from Functional Data Analysis (FDA) using K and G for a range of radii.
+
+* Each cohort analyzed individually.Meta-analysis was a random effect meta-analysis based on inverese-variance approach. Test Statistic was the log(HR) and the SE(logHR).
+
+* Restricted to HGSOC.
+
+* PCs are fixed to be same direct across cohorts. 
+
+* Weighted average of K or G functions across subjects with multiple cores, weighted by the number of cells in tumor compartment.
+
+* To be able to compute spatial trajectory, they had to have 8 cells of the cell type of interest.
+
+* Fit models without FPCs (Model 1), with main effect (Model 2), and interaction of FPCs with abundance (1% threshold) (Model 3). Model 4 - (binary high/low FPCs at value 0).
+
+* Reference groups: high stage (parameter is effect of low stage), low abundance (parameter is effect for high abundance).
+
+  - stage = 0 if high and 1 if low
+
+  - abund_binary = 0 if low and 1 if high abundance. 
+
+* Sample Sizes (subjects)
+
+ - AAS: 155 in Model 1, 132 in spatial models for CD3+, 109 in spatial models for CD3+CD8+.
+ 
+ - NCO: 136 in Model 1, 118 in spatial models for CD3+, 93 for CD3+CD8+.
+ 
+ - NECC: 175 in model 1, 156 in spatial models for CD3+, 119 for CD3+CD8+. 
+ 
+ - NHS: 239 in model 1, 192 in model for CD3+, 128 for CD3+CD8+.
+ 
+ - NHSII: 68 in model 1, 56 in model for CD3+, 45 in model for CD3+CD8+.
+ 
+
+
+
+```{r data, ECHO=FALSE}
+
+#reading in Abundance + Spatial Possible Model (all subjects), model 1
+
+cyto.g.1 <- read_excel("data1_g.xlsx", sheet= "Abundance and Func Observed")
+
+# cyto.k.1 <- read_excel("data1_k.xlsx", sheet= "Abundance and Func Observed")
+
+tcell.g.1 <- read_excel("data1_g.xlsx", sheet= "Abundance and Func Observed")
+
+# tcell.k.1 <- read_excel("data1_k.xlsx", sheet= "Abundance and Func Observed")
+
+
+
+#reading in the FPC Score with No interaction in Model 2
+
+cyto.g.2 <- read_excel("data2_g.xlsx", sheet= "FPC Score No Interactions")
+
+# cyto.k.2 <- read_excel("data2_k.xlsx", sheet= "FPC Score No Interactions")
+
+tcell.g.2 <- read_excel("data2_g.xlsx", sheet= "FPC Score No Interactions")
+
+# tcell.k.2 <- read_excel("data2_k.xlsx", sheet= "FPC Score No Interactions")
+
+
+
+#reading in the FPC Score for interaction in Model 3
+
+cyto.g.3 <- read_excel("data3_g.xlsx", sheet= "FPC Score Interactions")
+
+# cyto.k.3 <- read_excel("data3_k.xlsx", sheet= "FPC Score Interactions")
+
+tcell.g.3 <-read_excel("data3_g.xlsx", sheet= "FPC Score Interactions")
+
+# tcell.k.3 <- read_excel("data3_k.xlsx", sheet= "FPC Score Interactions")
+
+
+
+#reading in the FPC Score for interaction in Model 4 dicotomized 
+
+cyto.g.4 <- read_excel("data4_g.xlsx", sheet= "FPC Score Interactions")
+
+# cyto.k.4 <- read_excel("data4_k.xlsx", sheet= "FPC Score Interactions")
+
+tcell.g.4 <- read_excel("data4_g.xlsx", sheet= "FPC Score Interactions")
+
+# tcell.k.4 <- read_excel("data4_k.xlsx", sheet= "FPC Score Interactions")
+
+
+#reading in the FPC Score for interaction in Model 4 dicotomized for FPC1 only
+
+cyto.g.4.fpc1only <- read_excel("data5_g.xlsx", sheet= "FPC Score Interactions")
+
+tcell.g.4.fpc1only <- read_excel("data5_g.xlsx", sheet= "FPC Score Interactions")
+
+
+#fixing stage variable name in AAS and NCO
+
+cyto.g.1$factor<-ifelse(cyto.g.1$factor == "stage_catlow stage", "stage_catlow stage", cyto.g.1$factor)
+cyto.g.2$factor<-ifelse(cyto.g.2$factor == "stage_catlow stage", "stage_catlow stage", cyto.g.2$factor)
+cyto.g.3$factor<-ifelse(cyto.g.3$factor == "stage_catlow stage", "stage_catlow stage", cyto.g.3$factor)
+cyto.g.4$factor<-ifelse(cyto.g.4$factor == "stage_catlow stage", "stage_catlow stage", cyto.g.4$factor)
+cyto.g.4.fpc1only$factor<-ifelse(cyto.g.4.fpc1only$factor == "stage_catlow stage", "stage_catlow stage", cyto.g.4.fpc1only$factor)
+
+# cyto.k.1$factor<-ifelse(cyto.k.1$factor == "stage_catlow stage", "stage_catlow stage", cyto.k.1$factor)
+# cyto.k.2$factor<-ifelse(cyto.k.2$factor == "stage_catlow stage", "stage_catlow stage", cyto.k.2$factor)
+# cyto.k.3$factor<-ifelse(cyto.k.3$factor == "stage_catlow stage", "stage_catlow stage", cyto.k.3$factor)
+# cyto.k.4$factor<-ifelse(cyto.k.4$factor == "stage_catlow stage", "stage_catlow stage", cyto.k.4$factor)
+
+tcell.g.1$factor<-ifelse(tcell.g.1$factor == "stage_catlow stage", "stage_catlow stage", tcell.g.1$factor)
+tcell.g.2$factor<-ifelse(tcell.g.2$factor == "stage_catlow stage", "stage_catlow stage", tcell.g.2$factor)
+tcell.g.3$factor<-ifelse(tcell.g.3$factor == "stage_catlow stage", "stage_catlow stage", tcell.g.3$factor)
+tcell.g.4$factor<-ifelse(tcell.g.4$factor == "stage_catlow stage", "stage_catlow stage", tcell.g.4$factor)
+tcell.g.4.fpc1only$factor<-ifelse(tcell.g.4.fpc1only$factor == "stage_catlow stage", "stage_catlow stage", tcell.g.4.fpc1only$factor)
+
+# tcell.k.1$factor<-ifelse(tcell.k.1$factor == "stage_catlow stage", "stage_catlow stage", tcell.k.1$factor)
+# tcell.k.2$factor<-ifelse(tcell.k.2$factor == "stage_catlow stage", "stage_catlow stage", tcell.k.2$factor)
+# tcell.k.3$factor<-ifelse(tcell.k.3$factor == "stage_catlow stage", "stage_catlow stage", tcell.k.3$factor)
+# tcell.k.4$factor<-ifelse(tcell.k.4$factor == "stage_catlow stage", "stage_catlow stage", tcell.k.4$factor)
+
+```
+
+# Results from Abundance + Spatial Modeling Possible (Model 1)
+
+Model 1: Survival ~ agedx + stage(low/high) + abundance(1% binary) + spatial.possible(binary)
+
+All subjects included in analysis (not restricted to those with spatial trajectory computed).
+
+Results are same between K and G models as not estimating K or G in models (just if spatial analysis possible).
+
+Observe similar results for stage (higher HR for high stage), age at dx (higher HR for older individuals) and abundance (higher HR for low abundance) with survival across cohorts.
+
+```{r meta.abundance, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%", message=FALSE}
+
+##### Abundance
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.1, sm="HR")
+
+tiff("forest_cd3_G_model1_abund.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Abundance (1%): CD3+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model1_abund_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Abundance (1%): CD3+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.1, sm="HR")
+
+tiff("forest_cd3cd8_G_model1_abund.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Abundance (1%): CD3+CD8+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model1_abund_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Abundance (1%): CD3+CD8+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+##### Stage
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="stage_catlow stage", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.1, sm="HR")
+
+tiff("forest_cd3_G_model1_stage.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Stage: CD3+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model1_stage_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Stage: CD3+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="stage_catlow stage", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.1, sm="HR")
+
+tiff("forest_cd3cd8_G_model1_stage.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Stage: CD3+CD8+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model1_stage_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Stage: CD3+CD8+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+##### Age DX
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="ageatdx", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.1, sm="HR")
+
+tiff("forest_cd3_G_model1_age.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Age at DX: CD3+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model1_age_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Age at DX: CD3+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="ageatdx", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.1, sm="HR")
+
+tiff("forest_cd3cd8_G_model1_age.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Age at DX: CD3+CD8+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model1_age_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Age at DX: CD3+CD8+ model", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+```
+
+
+
+# Results from Non-Interation Analysis (just main effects) (Model 2)
+
+Model 2: Survival ~ agedx + stage(low/high) + abundance(1% binary) + FPC1 + FPC2
+
+
+Only subjects with spatial trajectory included.
+
+## Model 2 results for FPC1: degree of spatial clustering
+
+Note: The estimates for FPC1 for K are very small and close to 0. Not an error in reading in data (~10-7).
+
+See consistent results for FPC1 association with survival for G, for both T cells (CD3+) and Cytotoxic T cells (CD3+CD8+). Higher value FPC1 indicates high spatial clustering. So see worse survival (higher HR) for subjects with tumors with high spatial clustering of CD3+ and CD3+CD8+ based on G estimated curve. The association is strongest for CD3+CD8+ cell clustering. 
+
+Don't see any relationship with respect to K. 
+
+For NHSII, the curves are not as clean for G as for the other cohorts. For example, PC1 high/low lines cross @ radius 28 for CD3.
+
+In general, don't see much difference in spatial trajectories for any cell types or K/G at small radii (r < 12). Radius r is in px (pixel). 
+
+```{r meta.fpc1, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%", message=FALSE}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.2, sm="HR")
+
+tiff("forest_cd3_G_model2_fpc1.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model2_fpc1_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.2, sm="HR")
+
+tiff("forest_cd3cd8_G_model2_fpc1.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model2_fpc1_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.2, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("FPC1: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.2, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("FPC1: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+
+## Model 2 results for FPC2
+
+See a lot of heterogeneity in estimates of relationship between FPC2 with survival across the cohorts for G and K. For K, there is not much variation in FPC2 across tumors with the high/low curves similar to the population level. 
+
+
+```{r meta.fpc2, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc2", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.2, sm="HR")
+
+tiff("forest_cd3_G_model2_fpc2.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("FPC2: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model2_fpc2_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("FPC2: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc2", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.2, sm="HR")
+
+tiff("forest_cd3cd8_G_model2_fpc2.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("FPC2: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model2_fpc2_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("FPC2: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc2", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.2, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("FPC2: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc2", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.2, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("FPC2: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+
+
+# Results from Interation Analysis (abundance * spatial clustering) (Model 3)
+
+Model 3: Survival ~ Bo+ B1(agedx) + B2(stage) + B3(abundance) + B4(FPC1) + B5(FPC2) + B6(abundance x FPC1) + 
+    B7(abundance x FPC2)
+
+Only subjects with spatial trajectory included.
+
+With significant interactions, need to look at the effects for the 4 possibilities as can't interpret main effects: low abundance / low clustering, low abundance / high clustering, high abundance / low clustering, and high abundance / high clustering. 
+
+Need to get the mean effect for these 4 groups to compare. Abundance: 1 = high, 0 = low; FPC1: large value for clustering. 
+In model 3, FPC1 and FPC2 are continuous measures.Running with binary to help with intepretation. 
+
+
+## Model 3 results for Abundance (main effect)
+
+```{r meta.fpc1.abundance, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.3, sm="HR")
+
+tiff("forest_cd3_G_model3_abund.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - Abundance: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model3_abund_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 3 - Abundance: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.3, sm="HR")
+
+tiff("forest_cd3cd8_G_model3_abund.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - Abundance: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model3_abund_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 3 - Abundance: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.3, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("Model 3 - Abundance: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.3, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("Model 3 - Abundance: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+## Model 3 results for FPC1 (main effect)
+
+```{r meta.fpc1.main, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.3, sm="HR")
+
+tiff("forest_cd3_G_model3_fpc1.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model3_fpc1_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 3 - FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.3, sm="HR")
+
+tiff("forest_cd3cd8_G_model3_fpc1.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model3_fpc1_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 3 - FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.3, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("Model 3 - Abundance: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.3, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("Model 3 - Abundance: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+
+## Model 3 results for FPC1 x Abundance (inteaction effect)
+
+```{r meta.fpc1.interaction, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.3, sm="HR")
+
+tiff("forest_cd3_G_model3_abundfpc1.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - Abundance x FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model3_abundfpc1_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 3 - Abundance x FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.3, sm="HR")
+
+tiff("forest_cd3cd8_G_model3_abundfpc1.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - Abundance x FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model3_abundfpc1_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 3 - Abundance x FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.3, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("Model 3 - Abundance x FPC1: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.3, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("Model 3 - Abundance x FPC1: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+
+
+```{r meta.fpc2.interaction, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+
+# SUBTITLE "## Model 3 results for FPC2 x Abundance (inteaction effect)"
+# Add this subtitle back above if you want to add back FPC2 x Abundance plots
+
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc2", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.3, sm="HR")
+
+tiff("forest_cd3_G_model3_abundfpc2.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - Abundance x FPC2: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model3_abundfpc2_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 3 - Abundance x FPC2: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc2", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.3, sm="HR")
+
+tiff("forest_cd3cd8_G_model3_abundfpc2.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 3 - Abundance x FPC2: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model3_abundfpc2_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 3 - Abundance x FPC2: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc2", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.3, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("Model 3 - Abundance x FPC2: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc2", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.3, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("Model 3 - Abundance x FPC2: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+
+
+# Results from Interation Analysis with binary FPCs (abundance * spatial clustering) (Model 4)
+
+
+Model 4: Survival ~ Bo+ B1(agedx) + B2(stage) + B3(abundance) + B4(FPC1.b) + B5(FPC2.b) + B6(abundance x FPC1.b) + 
+    B7(abundance x FPC2.b)
+
+abundance = 0 if low and 1 if high.
+FPC1.b = 1 if low clustering and 0 if high clustering. 
+
+Only subjects with spatial trajectory included.
+
+With significant interactions, need to look at the effects for the 4 possibilities as can't interpret main effects: low abundance / low clustering, low abundance / high clustering, high abundance / low clustering, and high abundance / high clustering. 
+
+
+Need to get the mean effect for these 4 groups to compare. Abundance: 1 = high, 0 = low; FPC1.b: 1 = low clustering, 0 = high clustering. Holding all other variables fixed. 
+
+low abundance / low clustering: Abundance = 0, FPC1.b = 1: B3(0)+B4(1)+B6(0) = B4 
+low abundance / high clustering: abundance = 0, FPC1.b = 0: Baseline
+high abundance / low clustering: abundance = 1, FPC1.b = 1: B3+B4+B6
+high abundance / high clustering: abundance = 1, FPC1.b = 0: B3
+
+
+```{r meta.fpc1.binary, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.4, sm="HR")
+
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.4, sm="HR")
+
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1_catlow", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.4, sm="HR")
+
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Spatial Binary: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1_catlow", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.4, sm="HR")
+
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Spatial Binary: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1_catlow", method.tau = "REML", 
+                  random=TRUE, common=FALSE, method.I2="Q", data = tcell.g.4, sm="HR")
+
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance x Binary FPC1: CD3+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1_catlow", method.tau = "REML", 
+                     random=TRUE, common=FALSE, method.I2="Q", data = cyto.g.4, sm="HR")
+
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance x Binary FPC1: CD3+CD8+ G Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+ K
+# t.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1_catlow", method.tau = "REML", random=TRUE, method.I2="Q", data = tcell.k.4, sm="HR")
+# 
+# forest(t.k.meta)
+# grid.text("Model 4 - Abundance x Binary FPC1: CD3+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+## CD3+CD8+ K
+# cyto.k.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1_catlow", method.tau = "REML", random=TRUE, method.I2="Q", data = cyto.k.4, sm="HR")
+# 
+# forest(cyto.k.meta)
+# grid.text("Model 4 - Abundance x FPC1: CD3+CD8+ K Estimate", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+
+```
+
+
+
+```{r meta.HR.mean, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+
+## computing estimate of HR for each group abund/spatial
+
+#abund = 1 if high, 0 = low; spatial cluster = 1 if low and 0 if high, 
+
+### TCELL
+##############
+## aaces
+aas<-tcell.g.4[tcell.g.4$cohort=="AAS",]
+
+
+#high abundance, low spatial
+HR.HL.aas<- exp(aas$coef[aas$factor =="abund_binary"]+aas$coef[aas$factor=="fpc1_catlow"]
+  +aas$coef[aas$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.aas<- exp(aas$coef[aas$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.aas<- exp(aas$coef[aas$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.aas<-1.0
+
+aas.hr<-rbind(HR.HL.aas, HR.HH.aas, HR.LL.aas, HR.LH.aas)
+aas.hr<-as.data.frame(aas.hr)
+aas.hr$group<-rownames(aas.hr)
+aas.hr$HR<-aas.hr$V1
+
+ggplot(aas.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, AACES")
+
+##############
+## ncocs
+nco<-tcell.g.4[tcell.g.4$cohort=="NCO",]
+
+#high abundance, low spatial
+HR.HL.nco<- exp(nco$coef[nco$factor =="abund_binary"]+nco$coef[nco$factor=="fpc1_catlow"]
+  +nco$coef[nco$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nco<- exp(nco$coef[nco$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nco<- exp(nco$coef[nco$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nco<-1.0
+
+nco.hr<-rbind(HR.HL.nco, HR.HH.nco, HR.LL.nco, HR.LH.nco)
+nco.hr<-as.data.frame(nco.hr)
+nco.hr$group<-rownames(nco.hr)
+nco.hr$HR<-nco.hr$V1
+
+ggplot(nco.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NCOCS")
+
+##############
+## necc
+nec<-tcell.g.4[tcell.g.4$cohort=="NECC",]
+
+
+#high abundance, low spatial
+HR.HL.nec<- exp(nec$coef[nec$factor =="abund_binary"]+nec$coef[nec$factor=="fpc1_catlow"]
+  +nec$coef[nec$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nec<- exp(nec$coef[nec$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nec<- exp(nec$coef[nec$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nec<-1.0
+
+nec.hr<-rbind(HR.HL.nec, HR.HH.nec, HR.LL.nec, HR.LH.nec)
+nec.hr<-as.data.frame(nec.hr)
+nec.hr$group<-rownames(nec.hr)
+nec.hr$HR<-nec.hr$V1
+
+ggplot(nec.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NECC")
+
+##############
+## nhs
+nhs<-tcell.g.4[tcell.g.4$cohort=="NHS",]
+
+#high abundance, low spatial
+HR.HL.nhs<- exp(nhs$coef[nhs$factor =="abund_binary"]+nhs$coef[nhs$factor=="fpc1_catlow"]
+  +nhs$coef[nhs$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs<- exp(nhs$coef[nhs$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs<- exp(nhs$coef[nhs$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs<-1.0
+
+nhs.hr<-rbind(HR.HL.nhs, HR.HH.nhs, HR.LL.nhs, HR.LH.nhs)
+nhs.hr<-as.data.frame(nhs.hr)
+nhs.hr$group<-rownames(nhs.hr)
+nhs.hr$HR<-nhs.hr$V1
+
+ggplot(nhs.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NHS")
+
+##############
+## nhsII
+nhs2<-tcell.g.4[tcell.g.4$cohort=="NHSII",]
+
+#high abundance, low spatial
+HR.HL.nhs2<- exp(nhs2$coef[nhs2$factor =="abund_binary"]+nhs2$coef[nhs2$factor=="fpc1_catlow"]
+  +nhs2$coef[nhs2$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs2<- exp(nhs2$coef[nhs2$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs2<- exp(nhs2$coef[nhs2$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs2<-1.0
+
+nhs2.hr<-rbind(HR.HL.nhs2, HR.HH.nhs2, HR.LL.nhs2, HR.LH.nhs2)
+nhs2.hr<-as.data.frame(nhs2.hr)
+nhs2.hr$group<-rownames(nhs2.hr)
+nhs2.hr$HR<-nhs2.hr$V1
+
+ggplot(nhs2.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NHSII")
+
+### CYTOTOXIC TCELL
+##############
+## aaces
+aas<-cyto.g.4[cyto.g.4$cohort=="AAS",]
+
+
+#high abundance, low spatial
+HR.HL.aas<- exp(aas$coef[aas$factor =="abund_binary"]+aas$coef[aas$factor=="fpc1_catlow"]
+  +aas$coef[aas$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.aas<- exp(aas$coef[aas$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.aas<- exp(aas$coef[aas$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.aas<-1.0
+
+aas.hr<-rbind(HR.HL.aas, HR.HH.aas, HR.LL.aas, HR.LH.aas)
+aas.hr<-as.data.frame(aas.hr)
+aas.hr$group<-rownames(aas.hr)
+aas.hr$HR<-aas.hr$V1
+
+ggplot(aas.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, AACES")
+
+##############
+## ncocs
+nco<-cyto.g.4[cyto.g.4$cohort=="NCO",]
+
+#high abundance, low spatial
+HR.HL.nco<- exp(nco$coef[nco$factor =="abund_binary"]+nco$coef[nco$factor=="fpc1_catlow"]
+  +nco$coef[nco$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nco<- exp(nco$coef[nco$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nco<- exp(nco$coef[nco$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nco<-1.0
+
+nco.hr<-rbind(HR.HL.nco, HR.HH.nco, HR.LL.nco, HR.LH.nco)
+nco.hr<-as.data.frame(nco.hr)
+nco.hr$group<-rownames(nco.hr)
+nco.hr$HR<-nco.hr$V1
+
+ggplot(nco.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NCOCS")
+
+##############
+## necc
+nec<-cyto.g.4[cyto.g.4$cohort=="NECC",]
+
+
+#high abundance, low spatial
+HR.HL.nec<- exp(nec$coef[nec$factor =="abund_binary"]+nec$coef[nec$factor=="fpc1_catlow"]
+  +nec$coef[nec$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nec<- exp(nec$coef[nec$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nec<- exp(nec$coef[nec$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nec<-1.0
+
+nec.hr<-rbind(HR.HL.nec, HR.HH.nec, HR.LL.nec, HR.LH.nec)
+nec.hr<-as.data.frame(nec.hr)
+nec.hr$group<-rownames(nec.hr)
+nec.hr$HR<-nec.hr$V1
+
+ggplot(nec.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NECC")
+
+##############
+## nhs
+nhs<-cyto.g.4[cyto.g.4$cohort=="NHS",]
+
+#high abundance, low spatial
+HR.HL.nhs<- exp(nhs$coef[nhs$factor =="abund_binary"]+nhs$coef[nhs$factor=="fpc1_catlow"]
+  +nhs$coef[nhs$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs<- exp(nhs$coef[nhs$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs<- exp(nhs$coef[nhs$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs<-1.0
+
+nhs.hr<-rbind(HR.HL.nhs, HR.HH.nhs, HR.LL.nhs, HR.LH.nhs)
+nhs.hr<-as.data.frame(nhs.hr)
+nhs.hr$group<-rownames(nhs.hr)
+nhs.hr$HR<-nhs.hr$V1
+
+ggplot(nhs.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NHS")
+
+##############
+## nhsII
+nhs2<-cyto.g.4[cyto.g.4$cohort=="NHSII",]
+
+#high abundance, low spatial
+HR.HL.nhs2<- exp(nhs2$coef[nhs2$factor =="abund_binary"]+nhs2$coef[nhs2$factor=="fpc1_catlow"]
+  +nhs2$coef[nhs2$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs2<- exp(nhs2$coef[nhs2$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs2<- exp(nhs2$coef[nhs2$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs2<-1.0
+
+nhs2.hr<-rbind(HR.HL.nhs2, HR.HH.nhs2, HR.LL.nhs2, HR.LH.nhs2)
+nhs2.hr<-as.data.frame(nhs2.hr)
+nhs2.hr$group<-rownames(nhs2.hr)
+nhs2.hr$HR<-nhs2.hr$V1
+
+ggplot(nhs2.hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NHSII")
+
+
+### HR from META random effects
+
+## T cells
+abundance.meta<-log(1.0)
+spatial.meta<-log(1.21)
+interaction.meta<-log(0.61)
+
+hr.hh<-exp(abundance.meta)
+hr.hl<-exp(abundance.meta+spatial.meta+interaction.meta)
+hr.ll<-exp(spatial.meta)
+hr.lh<-1
+
+hr<-rbind(hr.hh, hr.hl, hr.ll, hr.lh)
+
+hr<-as.data.frame(hr)
+hr$group<-rownames(hr)
+hr$HR<-hr$V1
+
+ggplot(hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Meta Analysis for T cells, G")
+  
+hr
+ 
+## Cyto cells
+abundance.meta<-log(0.78)
+spatial.meta<-log(0.87)
+interaction.meta<-log(0.60)
+
+hr.hh<-exp(abundance.meta)
+hr.hl<-exp(abundance.meta+spatial.meta+interaction.meta)
+hr.ll<-exp(spatial.meta)
+hr.lh<-1
+
+hr<-rbind(hr.hh, hr.hl, hr.ll, hr.lh)
+
+hr<-as.data.frame(hr)
+hr$group<-rownames(hr)
+hr$HR<-hr$V1
+
+ggplot(hr, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Meta Analysis for Cytotoxic T cells, G")
+  
+hr
+```
+
+
+
+
+## Model 4 from Interation Analysis with binary FPCs (abundance * spatial clustering) FPC1 ONLY
+
+```{r meta.fpc1.binary.fpc1only, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.4.fpc1only, sm="HR")
+
+tiff("forest_cd3_G_model4_abund.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance: CD3+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model4_abund_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 4 - Abundance: CD3+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.4.fpc1only, sm="HR")
+
+tiff("forest_cd3cd8_G_model4_abund.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance: CD3+CD8+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model4_abund_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 4 - Abundance: CD3+CD8+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1_catlow", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = tcell.g.4.fpc1only, sm="HR")
+
+tiff("forest_cd3_G_model4_fpc1bin.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Spatial Binary: CD3+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model4_fpc1bin_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 4 - Spatial Binary: CD3+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="fpc1_catlow", method.tau = "REML", random=TRUE,
+                  common=FALSE, method.I2="Q", data = cyto.g.4.fpc1only, sm="HR")
+
+tiff("forest_cd3cd8_G_model4_fpc1bin.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Spatial Binary: CD3+CD8+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model4_fpc1bin_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 4 - Spatial Binary: CD3+CD8+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+
+## CD3+ G
+t.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1_catlow", method.tau = "REML", 
+                  random=TRUE, common=FALSE, method.I2="Q", data = tcell.g.4.fpc1only, sm="HR")
+
+tiff("forest_cd3_G_model4_abundfpc1bin.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance x Binary FPC1: CD3+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3_G_model4_abundfpc1bin_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(t.g.meta)
+grid.text("Model 4 - Abundance x Binary FPC1: CD3+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+## CD3+CD8+ G
+cyto.g.meta<-metagen(coef, `se(coef)`, studlab=cohort, subset=factor=="abund_binary:fpc1_catlow", method.tau = "REML", 
+                     random=TRUE, common=FALSE, method.I2="Q", data = cyto.g.4.fpc1only, sm="HR")
+
+tiff("forest_cd3cd8_G_model4_abundfpc1bin.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta, leftcols="studlab", leftlabs="Study", rightcols=c("effect","ci","w.random"),
+       rightlabs=c("HR","95%-CI","Weight (random)"), comb.fixed=FALSE, comb.random=TRUE, print.pval.Q=FALSE,
+       print.I2=FALSE, print.tau2=FALSE)
+grid.text("Model 4 - Abundance x Binary FPC1: CD3+CD8+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+tiff("forest_cd3cd8_G_model4_abundfpc1bin_full.tiff", width = 10, height = 5, units = "in",
+     res = 300, compression = "lzw")
+forest(cyto.g.meta)
+grid.text("Model 4 - Abundance x Binary FPC1: CD3+CD8+ G Estimate (FPC1 ONLY)", .5, .95, gp=gpar(cex=1.5, fontface="bold"))
+dev.off()
+
+
+
+```
+
+
+
+```{r meta.HR.mean.fpc1only, ECHO=FALSE, fig.width=10, fig.height=5, out.width="100%"}
+
+## computing estimate of HR for each group abund/spatial
+
+#abund = 1 if high, 0 = low; spatial cluster = 1 if low and 0 if high, 
+
+### TCELL
+##############
+## aaces
+aas.fpc1only<-tcell.g.4.fpc1only[tcell.g.4.fpc1only$cohort=="AAS",]
+
+
+#high abundance, low spatial
+HR.HL.aas.fpc1only<- exp(aas.fpc1only$coef[aas.fpc1only$factor =="abund_binary"]+aas.fpc1only$coef[aas.fpc1only$factor=="fpc1_catlow"]
+  +aas.fpc1only$coef[aas.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.aas.fpc1only<- exp(aas.fpc1only$coef[aas.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.aas.fpc1only<- exp(aas.fpc1only$coef[aas.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.aas.fpc1only<-1.0
+
+aas.hr.fpc1only<-rbind(HR.HL.aas.fpc1only, HR.HH.aas.fpc1only, HR.LL.aas.fpc1only, HR.LH.aas.fpc1only)
+aas.hr.fpc1only<-as.data.frame(aas.hr.fpc1only)
+aas.hr.fpc1only$group<-rownames(aas.hr.fpc1only)
+aas.hr.fpc1only$HR<-aas.hr.fpc1only$V1
+
+ggplot(aas.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, AACES (FPC1 ONLY)")
+
+##############
+## ncocs
+nco.fpc1only<-tcell.g.4.fpc1only[tcell.g.4.fpc1only$cohort=="NCO",]
+
+#high abundance, low spatial
+HR.HL.nco.fpc1only<- exp(nco.fpc1only$coef[nco.fpc1only$factor =="abund_binary"]+nco.fpc1only$coef[nco.fpc1only$factor=="fpc1_catlow"]
+  +nco.fpc1only$coef[nco.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nco.fpc1only<- exp(nco.fpc1only$coef[nco.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nco.fpc1only<- exp(nco.fpc1only$coef[nco.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nco.fpc1only<-1.0
+
+nco.hr.fpc1only<-rbind(HR.HL.nco.fpc1only, HR.HH.nco.fpc1only, HR.LL.nco.fpc1only, HR.LH.nco.fpc1only)
+nco.hr.fpc1only<-as.data.frame(nco.hr.fpc1only)
+nco.hr.fpc1only$group<-rownames(nco.hr.fpc1only)
+nco.hr.fpc1only$HR<-nco.hr.fpc1only$V1
+
+ggplot(nco.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NCOCS (FPC1 ONLY)")
+
+##############
+## necc
+nec.fpc1only<-tcell.g.4.fpc1only[tcell.g.4.fpc1only$cohort=="NECC",]
+
+
+#high abundance, low spatial
+HR.HL.nec.fpc1only<- exp(nec.fpc1only$coef[nec.fpc1only$factor =="abund_binary"]+nec.fpc1only$coef[nec.fpc1only$factor=="fpc1_catlow"]
+  +nec.fpc1only$coef[nec.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nec.fpc1only<- exp(nec.fpc1only$coef[nec.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nec.fpc1only<- exp(nec.fpc1only$coef[nec.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nec.fpc1only<-1.0
+
+nec.hr.fpc1only<-rbind(HR.HL.nec.fpc1only, HR.HH.nec.fpc1only, HR.LL.nec.fpc1only, HR.LH.nec.fpc1only)
+nec.hr.fpc1only<-as.data.frame(nec.hr.fpc1only)
+nec.hr.fpc1only$group<-rownames(nec.hr.fpc1only)
+nec.hr.fpc1only$HR<-nec.hr.fpc1only$V1
+
+ggplot(nec.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NECC (FPC1 ONLY)")
+
+##############
+## nhs
+nhs.fpc1only<-tcell.g.4.fpc1only[tcell.g.4.fpc1only$cohort=="NHS",]
+
+#high abundance, low spatial
+HR.HL.nhs.fpc1only<- exp(nhs.fpc1only$coef[nhs.fpc1only$factor =="abund_binary"]+nhs.fpc1only$coef[nhs.fpc1only$factor=="fpc1_catlow"]
+  +nhs.fpc1only$coef[nhs.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs.fpc1only<- exp(nhs.fpc1only$coef[nhs.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs.fpc1only<- exp(nhs.fpc1only$coef[nhs.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs.fpc1only<-1.0
+
+nhs.hr.fpc1only<-rbind(HR.HL.nhs.fpc1only, HR.HH.nhs.fpc1only, HR.LL.nhs.fpc1only, HR.LH.nhs.fpc1only)
+nhs.hr.fpc1only<-as.data.frame(nhs.hr.fpc1only)
+nhs.hr.fpc1only$group<-rownames(nhs.hr.fpc1only)
+nhs.hr.fpc1only$HR<-nhs.hr.fpc1only$V1
+
+ggplot(nhs.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NHS (FPC1 ONLY)")
+
+##############
+## nhsII
+nhs2.fpc1only<-tcell.g.4.fpc1only[tcell.g.4.fpc1only$cohort=="NHSII",]
+
+#high abundance, low spatial
+HR.HL.nhs2.fpc1only<- exp(nhs2.fpc1only$coef[nhs2.fpc1only$factor =="abund_binary"]+nhs2.fpc1only$coef[nhs2.fpc1only$factor=="fpc1_catlow"]
+  +nhs2.fpc1only$coef[nhs2.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs2.fpc1only<- exp(nhs2.fpc1only$coef[nhs2.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs2.fpc1only<- exp(nhs2.fpc1only$coef[nhs2.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs2.fpc1only<-1.0
+
+nhs2.hr.fpc1only<-rbind(HR.HL.nhs2.fpc1only, HR.HH.nhs2.fpc1only, HR.LL.nhs2.fpc1only, HR.LH.nhs2.fpc1only)
+nhs2.hr.fpc1only<-as.data.frame(nhs2.hr.fpc1only)
+nhs2.hr.fpc1only$group<-rownames(nhs2.hr.fpc1only)
+nhs2.hr.fpc1only$HR<-nhs2.hr.fpc1only$V1
+
+ggplot(nhs2.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Tcell, NHSII (FPC1 ONLY)")
+
+### CYTOTOXIC TCELL
+##############
+## aaces
+aas.fpc1only<-cyto.g.4.fpc1only[cyto.g.4.fpc1only$cohort=="AAS",]
+
+
+#high abundance, low spatial
+HR.HL.aas.fpc1only<- exp(aas.fpc1only$coef[aas.fpc1only$factor =="abund_binary"]+aas.fpc1only$coef[aas.fpc1only$factor=="fpc1_catlow"]
+  +aas.fpc1only$coef[aas.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.aas.fpc1only<- exp(aas.fpc1only$coef[aas.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.aas.fpc1only<- exp(aas.fpc1only$coef[aas.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.aas.fpc1only<-1.0
+
+aas.hr.fpc1only<-rbind(HR.HL.aas.fpc1only, HR.HH.aas.fpc1only, HR.LL.aas.fpc1only, HR.LH.aas.fpc1only)
+aas.hr.fpc1only<-as.data.frame(aas.hr.fpc1only)
+aas.hr.fpc1only$group<-rownames(aas.hr.fpc1only)
+aas.hr.fpc1only$HR<-aas.hr.fpc1only$V1
+
+ggplot(aas.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, AACES (FPC1 ONLY)")
+
+##############
+## ncocs
+nco.fpc1only<-cyto.g.4.fpc1only[cyto.g.4.fpc1only$cohort=="NCO",]
+
+#high abundance, low spatial
+HR.HL.nco.fpc1only<- exp(nco.fpc1only$coef[nco.fpc1only$factor =="abund_binary"]+nco.fpc1only$coef[nco.fpc1only$factor=="fpc1_catlow"]
+  +nco.fpc1only$coef[nco.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nco.fpc1only<- exp(nco.fpc1only$coef[nco.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nco.fpc1only<- exp(nco.fpc1only$coef[nco.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nco.fpc1only<-1.0
+
+nco.hr.fpc1only<-rbind(HR.HL.nco.fpc1only, HR.HH.nco.fpc1only, HR.LL.nco.fpc1only, HR.LH.nco.fpc1only)
+nco.hr.fpc1only<-as.data.frame(nco.hr.fpc1only)
+nco.hr.fpc1only$group<-rownames(nco.hr.fpc1only)
+nco.hr.fpc1only$HR<-nco.hr.fpc1only$V1
+
+ggplot(nco.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NCOCS (FPC1 ONLY)")
+
+##############
+## necc
+nec.fpc1only<-cyto.g.4.fpc1only[cyto.g.4.fpc1only$cohort=="NECC",]
+
+
+#high abundance, low spatial
+HR.HL.nec.fpc1only<- exp(nec.fpc1only$coef[nec.fpc1only$factor =="abund_binary"]+nec.fpc1only$coef[nec.fpc1only$factor=="fpc1_catlow"]
+  +nec.fpc1only$coef[nec.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nec.fpc1only<- exp(nec.fpc1only$coef[nec.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nec.fpc1only<- exp(nec.fpc1only$coef[nec.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nec.fpc1only<-1.0
+
+nec.hr.fpc1only<-rbind(HR.HL.nec.fpc1only, HR.HH.nec.fpc1only, HR.LL.nec.fpc1only, HR.LH.nec.fpc1only)
+nec.hr.fpc1only<-as.data.frame(nec.hr.fpc1only)
+nec.hr.fpc1only$group<-rownames(nec.hr.fpc1only)
+nec.hr.fpc1only$HR<-nec.hr.fpc1only$V1
+
+ggplot(nec.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NECC (FPC1 ONLY)")
+
+##############
+## nhs
+nhs.fpc1only<-cyto.g.4.fpc1only[cyto.g.4.fpc1only$cohort=="NHS",]
+
+#high abundance, low spatial
+HR.HL.nhs.fpc1only<- exp(nhs.fpc1only$coef[nhs.fpc1only$factor =="abund_binary"]+nhs.fpc1only$coef[nhs.fpc1only$factor=="fpc1_catlow"]
+  +nhs.fpc1only$coef[nhs.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs.fpc1only<- exp(nhs.fpc1only$coef[nhs.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs.fpc1only<- exp(nhs.fpc1only$coef[nhs.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs.fpc1only<-1.0
+
+nhs.hr.fpc1only<-rbind(HR.HL.nhs.fpc1only, HR.HH.nhs.fpc1only, HR.LL.nhs.fpc1only, HR.LH.nhs.fpc1only)
+nhs.hr.fpc1only<-as.data.frame(nhs.hr.fpc1only)
+nhs.hr.fpc1only$group<-rownames(nhs.hr.fpc1only)
+nhs.hr.fpc1only$HR<-nhs.hr.fpc1only$V1
+
+ggplot(nhs.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NHS (FPC1 ONLY)")
+
+##############
+## nhsII
+nhs2.fpc1only<-cyto.g.4.fpc1only[cyto.g.4.fpc1only$cohort=="NHSII",]
+
+#high abundance, low spatial
+HR.HL.nhs2.fpc1only<- exp(nhs2.fpc1only$coef[nhs2.fpc1only$factor =="abund_binary"]+nhs2.fpc1only$coef[nhs2.fpc1only$factor=="fpc1_catlow"]
+  +nhs2.fpc1only$coef[nhs2.fpc1only$factor== "abund_binary:fpc1_catlow"])
+
+#high abundance, high spatial 
+HR.HH.nhs2.fpc1only<- exp(nhs2.fpc1only$coef[nhs2.fpc1only$factor =="abund_binary"])
+
+
+#low abundance, low spatial
+HR.LL.nhs2.fpc1only<- exp(nhs2.fpc1only$coef[nhs2.fpc1only$factor=="fpc1_catlow"])
+
+## low abundance, high spatial
+HR.LH.nhs2.fpc1only<-1.0
+
+nhs2.hr.fpc1only<-rbind(HR.HL.nhs2.fpc1only, HR.HH.nhs2.fpc1only, HR.LL.nhs2.fpc1only, HR.LH.nhs2.fpc1only)
+nhs2.hr.fpc1only<-as.data.frame(nhs2.hr.fpc1only)
+nhs2.hr.fpc1only$group<-rownames(nhs2.hr.fpc1only)
+nhs2.hr.fpc1only$HR<-nhs2.hr.fpc1only$V1
+
+ggplot(nhs2.hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Cytotoxic T cells, NHSII (FPC1 ONLY)")
+
+
+### HR from META random effects
+
+## T cells
+abundance.meta.fpc1only<-log(1.08)
+spatial.meta.fpc1only<-log(1.23)
+interaction.meta.fpc1only<-log(0.62)
+
+hr.hh.fpc1only<-exp(abundance.meta.fpc1only)
+hr.hl.fpc1only<-exp(abundance.meta.fpc1only+spatial.meta.fpc1only+interaction.meta.fpc1only)
+hr.ll.fpc1only<-exp(spatial.meta.fpc1only)
+hr.lh.fpc1only<-1
+
+hr.fpc1only<-rbind(hr.hh.fpc1only, hr.hl.fpc1only, hr.ll.fpc1only, hr.lh.fpc1only)
+
+hr.fpc1only<-as.data.frame(hr.fpc1only)
+hr.fpc1only$group<-rownames(hr.fpc1only)
+hr.fpc1only$HR<-hr.fpc1only$V1
+
+ggplot(hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Meta Analysis for T cells, G (FPC1 ONLY)")
+  
+hr.fpc1only
+ 
+## Cyto cells
+abundance.meta.fpc1only<-log(0.81)
+spatial.meta.fpc1only<-log(0.84)
+interaction.meta.fpc1only<-log(0.63)
+
+hr.hh.fpc1only<-exp(abundance.meta.fpc1only)
+hr.hl.fpc1only<-exp(abundance.meta.fpc1only+spatial.meta.fpc1only+interaction.meta.fpc1only)
+hr.ll.fpc1only<-exp(spatial.meta.fpc1only)
+hr.lh.fpc1only<-1
+
+hr.fpc1only<-rbind(hr.hh.fpc1only, hr.hl.fpc1only, hr.ll.fpc1only, hr.lh.fpc1only)
+
+hr.fpc1only<-as.data.frame(hr.fpc1only)
+hr.fpc1only$group<-rownames(hr.fpc1only)
+hr.fpc1only$HR<-hr.fpc1only$V1
+
+ggplot(hr.fpc1only, aes(group, HR))+
+  geom_bar(stat="identity", fill = "steelblue")+
+  ggtitle("Meta Analysis for Cytotoxic T cells, G (FPC1 ONLY)")
+  
+hr.fpc1only
+```
+
+
+
+
+
