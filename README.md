@@ -42,5 +42,5 @@ R Markdown workflow used to:
 
 ### Major R Packages Utilized
 
-***'scSpatialSim'***, ***`spatialTIME`***, ***`mxfda`***, ***`survival`***, ***`meta`***
+***`scSpatialSim`***, ***`spatialTIME`***, ***`mxfda`***, ***`survival`***, ***`meta`***
 
